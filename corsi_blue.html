@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Corsi Block Test</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;600&display=swap');
+
+  :root {
+    --bg: #1a1a1c;
+    --surface: #222226;
+    --border: #333338;
+    --block-idle: #2e2e34;
+    --block-border: #444450;
+    --flash: #2979ff;
+    --flash-glow: rgba(41, 121, 255, 0.55);
+    --text: #d8d8d8;
+    --muted: #888;
+    --error: #e05252;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+  }
+
+  .screen { display: none; flex-direction: column; align-items: center; gap: 28px; }
+  .screen.active { display: flex; }
+
+  #screen-intro { max-width: 480px; text-align: center; gap: 32px; }
+  #screen-intro h1 {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.3rem;
+    letter-spacing: 0.18em;
+    color: var(--flash);
+    text-transform: uppercase;
+  }
+  #screen-intro p {
+    font-size: 1.05rem;
+    font-weight: 300;
+    line-height: 1.75;
+    color: #aaa;
+  }
+  #screen-intro p strong { color: var(--text); font-weight: 600; }
+
+  #screen-game { gap: 20px; }
+
+  #status-bar {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    display: flex;
+    gap: 32px;
+  }
+  #status-bar span { color: var(--text); }
+
+  #board-wrap { position: relative; }
+  #board { position: relative; }
+
+  .block {
+    position: absolute;
+    width: 52px;
+    height: 52px;
+    background: var(--block-idle);
+    border: 1.5px solid var(--block-border);
+    border-radius: 6px;
+    cursor: default;
+    transition: background 0.1s, box-shadow 0.1s;
+  }
+  .block.lit {
+    background: var(--flash);
+    box-shadow: 0 0 22px 6px var(--flash-glow), inset 0 0 8px rgba(255,255,255,0.15);
+  }
+  .block.clickable { cursor: pointer; }
+  .block.clickable:hover { border-color: var(--flash); }
+  .block.correct {
+    background: var(--flash);
+    box-shadow: 0 0 12px 3px var(--flash-glow);
+    transition: background 0.05s;
+  }
+  .block.wrong {
+    background: var(--error);
+    box-shadow: 0 0 12px 3px rgba(224,82,82,0.5);
+    transition: background 0.05s;
+  }
+
+  #message {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    height: 1.2em;
+    text-align: center;
+  }
+
+  #feedback-overlay {
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 5.5rem;
+    font-weight: 900;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.08s ease;
+    z-index: 10;
+  }
+  #feedback-overlay.show { opacity: 1; }
+  #feedback-overlay.correct-fb {
+    background: rgba(0,0,0,0.55);
+    color: var(--flash);
+    text-shadow: 0 0 40px var(--flash-glow), 0 0 80px var(--flash-glow);
+  }
+  #feedback-overlay.wrong-fb {
+    background: rgba(0,0,0,0.55);
+    color: var(--error);
+    text-shadow: 0 0 40px rgba(224,82,82,0.8), 0 0 80px rgba(224,82,82,0.5);
+  }
+
+  #screen-result { text-align: center; gap: 24px; }
+  #screen-result h2 {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.1rem;
+    letter-spacing: 0.16em;
+    color: var(--flash);
+    text-transform: uppercase;
+  }
+  .stat-row { display: flex; gap: 48px; justify-content: center; }
+  .stat { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .stat-val { font-family: 'Share Tech Mono', monospace; font-size: 2.6rem; color: var(--text); }
+  .stat-label { font-size: 0.75rem; letter-spacing: 0.14em; color: var(--muted); text-transform: uppercase; }
+
+  button {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.82rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    background: transparent;
+    color: var(--flash);
+    border: 1.5px solid var(--flash);
+    padding: 12px 36px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+  button:hover { background: var(--flash); color: #fff; }
+
+  #btn-fullscreen {
+    position: fixed;
+    top: 14px;
+    right: 16px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 7px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  #btn-fullscreen:hover { color: var(--text); border-color: var(--text); }
+
+  .divider { width: 60px; height: 1px; background: var(--border); margin: 4px auto; }
+</style>
+</head>
+<body>
+
+<button id="btn-fullscreen">⛶ Fullscreen</button>
+
+<div id="screen-intro" class="screen active">
+  <h1>Corsi Block Test</h1>
+  <div class="divider"></div>
+  <p>
+    A sequence of blocks will <strong>flash</strong> one at a time.<br>
+    Repeat the sequence by clicking the blocks <strong>in the same order</strong>.<br><br>
+    The sequence grows longer each round.<br>
+    <strong>Two mistakes</strong> and the test ends.
+  </p>
+  <button id="btn-start">Begin</button>
+</div>
+
+<div id="screen-game" class="screen">
+  <div id="status-bar">
+    SPAN&nbsp;<span id="disp-span">—</span> &nbsp;|&nbsp; ERRORS&nbsp;<span id="disp-errors">0</span>/2
+  </div>
+  <div id="board-wrap">
+    <div id="board"></div>
+    <div id="feedback-overlay"></div>
+  </div>
+  <div id="message">watch the sequence…</div>
+</div>
+
+<div id="screen-result" class="screen">
+  <h2>Test Complete</h2>
+  <div class="divider"></div>
+  <div class="stat-row">
+    <div class="stat">
+      <div class="stat-val" id="res-span">—</div>
+      <div class="stat-label">Corsi Span</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="res-time">—</div>
+      <div class="stat-label">Duration (s)</div>
+    </div>
+  </div>
+  <button id="btn-restart">Restart</button>
+</div>
+
+<script>
+const FLASH_MS   = 600;
+const GAP_MS     = 300;
+const BETWEEN_MS = 1000;
+const MAX_ERRORS = 2;
+
+const BLOCK_DEFS = [
+  { x: 130, y: 155 },
+  { x:  30, y: 145 },
+  { x: 180, y: 120 },
+  { x:  70, y: 110 },
+  { x: 140, y:  90 },
+  { x: 195, y:  60 },
+  { x:  15, y:  50 },
+  { x:  75, y:  20 },
+  { x: 135, y:  30 },
+];
+const ORIG_W = 255;
+const ORIG_H = 205;
+const ORIG_BLOCK = 30;
+
+let sequence    = [];
+let userInput   = [];
+let currentSpan = 2;
+let errors      = 0;
+let phase       = 'idle';
+let startTime   = null;
+
+const boardEl = document.getElementById('board');
+const blocks  = [];
+
+function buildBoard() {
+  boardEl.innerHTML = '';
+  blocks.length = 0;
+
+  const maxW = Math.min(window.innerWidth - 40, 520);
+  const maxH = Math.min(window.innerHeight - 200, 420);
+  const scale = Math.min(maxW / ORIG_W, maxH / ORIG_H);
+
+  const boardW = Math.round(ORIG_W * scale);
+  const boardH = Math.round(ORIG_H * scale);
+  const bSize  = Math.round(ORIG_BLOCK * scale);
+
+  boardEl.style.width  = boardW + 'px';
+  boardEl.style.height = boardH + 'px';
+
+  document.getElementById('feedback-overlay').style.width  = boardW + 'px';
+  document.getElementById('feedback-overlay').style.height = boardH + 'px';
+
+  BLOCK_DEFS.forEach((def, i) => {
+    const b = document.createElement('div');
+    b.className = 'block';
+    b.dataset.idx = i;
+    b.style.left   = Math.round(def.x * scale) + 'px';
+    b.style.top    = Math.round((ORIG_H - def.y - ORIG_BLOCK) * scale) + 'px';
+    b.style.width  = bSize + 'px';
+    b.style.height = bSize + 'px';
+    b.addEventListener('click', onBlockClick);
+    boardEl.appendChild(b);
+    blocks.push(b);
+  });
+}
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+document.getElementById('btn-start').addEventListener('click', () => {
+  buildBoard();
+  currentSpan = 2; errors = 0;
+  startTime = Date.now();
+  show('screen-game');
+  nextRound();
+});
+
+document.getElementById('btn-restart').addEventListener('click', () => show('screen-intro'));
+
+function nextRound() {
+  updateStatus();
+  sequence = randomSequence(currentSpan);
+  userInput = [];
+  setMessage('watch the sequence…');
+  setClickable(false);
+  setTimeout(() => showSequence(), 600);
+}
+
+function randomSequence(len) {
+  const seq = []; let last = -1;
+  for (let i = 0; i < len; i++) {
+    let idx;
+    do { idx = Math.floor(Math.random() * blocks.length); } while (idx === last);
+    seq.push(idx); last = idx;
+  }
+  return seq;
+}
+
+async function showSequence() {
+  phase = 'show';
+  for (let i = 0; i < sequence.length; i++) {
+    await flash(sequence[i]);
+    if (i < sequence.length - 1) await delay(GAP_MS);
+  }
+  await delay(BETWEEN_MS);
+  phase = 'input';
+  setClickable(true);
+  setMessage('your turn');
+}
+
+function flash(idx) {
+  return new Promise(resolve => {
+    blocks[idx].classList.add('lit');
+    setTimeout(() => { blocks[idx].classList.remove('lit'); resolve(); }, FLASH_MS);
+  });
+}
+
+function onBlockClick(e) {
+  if (phase !== 'input') return;
+  const idx = parseInt(e.currentTarget.dataset.idx);
+  userInput.push(idx);
+  const pos = userInput.length - 1;
+
+  if (idx === sequence[pos]) {
+    pulse(blocks[idx], 'correct');
+    if (userInput.length === sequence.length) {
+      setClickable(false); phase = 'idle'; currentSpan++;
+      showFeedback('✓', 'correct-fb'); setMessage('');
+      setTimeout(nextRound, BETWEEN_MS);
+    }
+  } else {
+    pulse(blocks[idx], 'wrong');
+    errors++; updateStatus();
+    setClickable(false); phase = 'idle';
+    showFeedback('✗', 'wrong-fb');
+    if (errors >= MAX_ERRORS) {
+      setTimeout(endTest, 900);
+    } else {
+      setMessage('');
+      setTimeout(() => {
+        userInput = []; setMessage('watch the sequence…');
+        setTimeout(() => showSequence(), 600);
+      }, BETWEEN_MS);
+    }
+  }
+}
+
+function endTest() {
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  const span = Math.max(currentSpan - 1, 2);
+  document.getElementById('res-span').textContent = span;
+  document.getElementById('res-time').textContent = elapsed;
+  show('screen-result');
+}
+
+function setClickable(on) {
+  blocks.forEach(b => on ? b.classList.add('clickable') : b.classList.remove('clickable'));
+}
+function pulse(el, cls) { el.classList.add(cls); setTimeout(() => el.classList.remove(cls), 400); }
+function updateStatus() {
+  document.getElementById('disp-span').textContent   = currentSpan;
+  document.getElementById('disp-errors').textContent = errors;
+}
+function setMessage(txt) { document.getElementById('message').textContent = txt; }
+function showFeedback(symbol, cls) {
+  const ov = document.getElementById('feedback-overlay');
+  ov.textContent = symbol; ov.className = 'show ' + cls;
+  setTimeout(() => { ov.className = ''; ov.textContent = ''; }, 800);
+}
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+const btnFs = document.getElementById('btn-fullscreen');
+btnFs.addEventListener('click', () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen();
+    btnFs.textContent = '✕ Exit Fullscreen';
+  } else {
+    document.exitFullscreen();
+    btnFs.textContent = '⛶ Fullscreen';
+  }
+});
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) btnFs.textContent = '⛶ Fullscreen';
+});
+window.addEventListener('resize', () => {
+  if (document.getElementById('screen-game').classList.contains('active')) buildBoard();
+});
+</script>
+</body>
+</html>
